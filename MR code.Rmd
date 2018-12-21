@@ -1,0 +1,57 @@
+---
+title: "MR data script"
+output: pdf_document
+---
+## Vector with traits:
+```{r}
+traits <- c("AD", "ALS", "BASO", "BMI", "BMI_UKBB", "CAD", "CD", "CHILDHOOD_BMI", 
+            "DEPRESSIVE_SYNTOMS", "DIAST_PRESSURE", "EDU_ATTAINMENT", "EO", 
+            "FG", "FI", "HDL", "HEIGHT", "HEIGHT_UKBB", "HGB", "HR", "IBD", "INSOMNIA", "INTELLIGENCE", 
+            "LDL", "LYMPH", "MCV", "MEAN_ARTERIAL_PRESSURE", "MENARCHE", "MENOPAUSE", "MONO", 
+            "MPV", "NEUROTICISM", "NEUT","PLT", "PULSE_PRESSURE", "RA", "RBC", "RET", "SCZ", "SWB",
+            "SYST_PRESSURE", "T2D","TC",  "TG", "UC", "WHRadjBMI")#This vector contains all the traits (risk factors)
+
+```
+
+## Vector with file names:
+```{r}
+#install.packages("readr")#ignore if already installed 
+library('readr')
+names=c("HEIGHT_UKBB", "BMI_UKBB", "WHRadjBMI")#Remove these traits
+traits.rm=which(traits%in% names)#indexes for the elements to be removed
+traits=traits[-traits.rm]#Remove the traits 
+files=paste0(traits,".pvalue.genename")#paste0 concatenates two vectors. This will create a vector of trait names and .pvalue.genename added to them.
+
+```
+
+## Creating the new data:
+```{r}
+options(readr.num_columns = 0)#To remove readr message by default (error)
+setwd("C:/Users/Farid/OneDrive/Documents/Biologie Master Bioinfo/First step/Database/MR-results")
+MR <- NULL
+
+for (i in 1:length(files))
+{
+    tmp <- read_tsv(files[i]) ## read in tsv file
+    trait <- strsplit(files[i],c("\\.|/"))[[1]][1] ## define trait character
+    tmp2 <- data.frame(tmp, trait) ## add trait as a separate column
+    MR <- rbind(MR, tmp2) ## bind the dataset to the full MR dataset row-wise
+}
+
+MR$trait <- as.character(MR$trait)
+```
+Save the file: 
+```{r}
+save(MR, file = "MR_results.RData")
+```
+
+
+## PLot -log10(p.values) to observe the distribution for a particular trait:
+```{r}
+#MR$log.pval=-log10(MR$pvalue)
+#plot(MR$log.pval[MR$trait=="AD"],ylab='-log10(p.value)',xlab='gene index',main='p.value distribution for AD')
+#points(MR$log.pval[MR$trait=="AD"])
+#gid=MR$gene_id[MR$log.pval>14&MR$trait=="AD"]
+#text(MR$log.pval[gid],gid,pos = 3,cex = 0.8)
+```
+

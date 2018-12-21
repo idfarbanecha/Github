@@ -1,0 +1,182 @@
+---
+title: "DrugB code"
+output: pdf_document
+---
+### 1) Importing XML and exploring it:
+## Setting up the directory and the xml file :
+
+```{r}
+path=c("Drugbank data/")
+drugbank.xml <- "database.xml"
+```
+
+## Parse the xml file :
+```{r}
+#install.packages("XML")#Don't run if already installed, if not remove the #
+library(XML)
+library(plyr)
+library(parallel)
+xmlfile <- xmlParse(paste0(path, drugbank.xml))
+xmltop <- xmlRoot(xmlfile) #gives content of root
+```
+
+## Explore it :
+An Xml file has a tree structure. It starts at a root element and branches into child elements. Example : 
+
+<root>
+  <child>
+    <subchild>.....</subchild>
+  </child>
+</root>
+
+
+Let's see the structure of our drugbank.xml file:
+```{r}
+class(xmlfile) #"XMLInternalDocument" "XMLAbstractDocument"
+class(xmltop) # "XMLInternalElementNode" "XMLInternalNode" "XMLAbstractNode"
+xmlName(xmltop) # give name of node: "drugbank"
+xmlSize(xmltop) # how many children in node, you ghave to find 11292
+xmlName(xmltop[[1]]) # name of root's children : "drug"
+```
+Now we can extract entries, for example number k=325:
+```{r}
+k <- 325
+xmltop[[k]][["drugbank-id"]] #The drug's ID is DB00335
+xmltop[[k]][["name"]] # The drug's name is Atenolol
+xmltop[[k]][["indication"]][[1]]#For what the drug is used
+xmltop[[k]][["description"]]# Description of the drug 
+xmltop[[k]][["snp-effects"]]#Target protein name, gene name, uniprot id, SNP id...
+xmltop[[k]][["snp-adverse-drug-reactions"]]#No SNP adverse drug reaction
+xmltop[[k]][["categories"]][[2]]#Category of the drug: Adrenergic Antagonists
+xmltop[[k]][["targets"]][[1]][[7]][["gene-name"]]#Gene of the target protein
+xmltop[[k]][["carriers"]][[1]][[7]][["gene-name"]]
+```
+
+```{r}
+k <- 1
+xmltop[[k]][["drugbank-id"]] #The drug's ID is DB00001
+xmltop[[k]][["name"]] # The drug's name is Lepirudin
+xmltop[[k]][["indication"]][[1]]#For what the drug is used
+xmltop[[k]][["description"]]# Description of the drug 
+xmltop[[k]][["snp-effects"]]#Target protein name, gene name, uniprot id, SNP id...
+xmltop[[k]][["snp-adverse-drug-reactions"]]#No SNP adverse drug reaction
+xmltop[[k]][["categories"]][[2]]#Category of the drug: Anticoagulants
+xmltop[[k]][["targets"]][[1]][[7]][["gene-name"]]#Gene of the target protein
+xmltop[[k]][["carriers"]][[1]][[7]][["gene-name"]]
+```
+
+### 2) Extracting information:
+*Dr Sina Rueger kindly provided me the code for a function that extracts data from the xml file :
+```{r}
+extract.xml <- function(string, data){
+  tmp <- data[[string]]
+  if(xmlSize(tmp)==0)
+  {
+    return(NA)
+  }
+  #Return NA if the string argument is empty
+  if (xmlSize(tmp) == 1 & !(string %in% c("transporters","targets","enzymes","carriers")))
+    #If the size of string equals 1, then return tmp[[1]] as a character 
+  {
+    return(as(tmp[[1]], "character"))
+  }else{
+    if (string == "categories")
+    {
+      tmp2 <- sapply(1:xmlSize(tmp), function(x) as(tmp[[x]][["category"]][[1]],
+                                                    "character"))
+      
+      tmp.out <- paste0(tmp2, collapse = "/")
+      return(tmp.out)
+    }else{
+      if (string %in% c("transporters","targets","enzymes","carriers"))
+      {
+        tmp2 <- sapply(1:xmlSize(tmp), function(x)
+                   {
+                       gene <- tmp[[x]][[7]][["gene-name"]][[1]]
+                       if (!is.null(gene))
+                       {
+                           as(gene,"character")
+                       }else{
+                           NA
+                       }
+                   }
+                       ) ## maybe more???
+        ##paste
+        tmp.out <- paste0(na.omit(tmp2), collapse = "/")
+        return(tmp.out)
+      
+        ## if larger and not present, then NA
+      }else{
+          return(NA)
+      }
+    }
+  }
+  
+}
+```
+
+#Now test the function yourself:
+
+```{r}
+k <- 5443
+data <- xmltop[[k]]
+extract.xml("drugbank-id", data)
+extract.xml("name", data)
+extract.xml("indication", data)
+extract.xml("description", data)
+extract.xml("snp-effects", data)
+extract.xml("snp-adverse-drug-reactions", data)
+extract.xml("categories", data)
+extract.xml("targets", data)
+extract.xml("enzymes", data)
+extract.xml("carriers", data)
+extract.xml("transporters", data)
+```
+--> As you can see extract.xml extracts the name of the information you seek as a string of characters without the tree structure of xml (more humanly readable).
+# A function that stores the info in a data frame :
+```{r}
+xml2df <- function(strings, data)
+{
+   out <- data.frame(t(unlist(sapply(strings, function(x) extract.xml(x, data)))))
+            #Apply the extract.xml function on the whole data 
+            #the output will be stored in a data frame called "out"
+                         
+  return(out)
+  
+}
+```
+
+# Now test this function for a Drug : 
+```{r}
+strings <- c("drugbank-id", "name", "indication", "description",
+             "snp-effects","snp-adverse-drug-reactions" ,"categories",
+             "targets","transporters","enzymes","carriers")
+k <- 5443 ## which(DB.raw$name == "Atenolol")
+data <- xmltop[[k]]
+
+xml2df(strings,data)
+```
+
+```{r}
+library(parallel)
+tmp <- mclapply(1:xmlSize(xmltop), function(k)
+  {
+     out <-  xml2df(strings,xmltop[[k]])
+    return(out) 
+  }, mc.cores = 1)
+```
+
+tmp is a large list of 11292 elements, convert this into a data frame :
+```{r}
+#install.packages('data.table')
+library(data.table)
+DB <- rbindlist(tmp)
+#install.packages("dplyr")
+library(dplyr)
+DB <- (DB %>% mutate_if(is.factor,as.character) )#Turn all factors into characters
+```
+Save your precious filtered data:
+```{r}
+save(DB,file="DrugBank_data.RData")
+```
+
