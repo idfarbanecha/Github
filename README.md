@@ -1,6 +1,6 @@
 # First-step project script
 The idea was to find if drug prescribed for given traits are associated with the trait.
-For this, the goal was to find common genes between the DrugBank dataset (https://www.drugbank.ca/) and Mendelian randomization (MR) results, and attribute a score for each drug.
+For this, the goal was to find common genes between the DrugBank dataset (https://www.drugbank.ca/) and Mendelian randomization (MR) results and attribute a score for each drug.
 MR results consist of associations between causal genes and a trait (with the p-value of the association)
 The drugbank dataset consists of a list of drugs with their gene targets.
 The scores for each drug were calculated as follows:
@@ -9,11 +9,11 @@ The scores for each drug were calculated as follows:
 
 Where: 
 
-  -t is the number of genes for each trait 
+  -t is the number of genes for each drug (column sum) 
   
-  -P is the matrix containing the p-values for each gene
+  -P is the matrix containing the p-values for each gene-trait association
   
-  -Q is the number of drug targets
+  -Q is a matrix with 0 and 1 (0= the drug does not target the gene, 1= the drug targets the gene)
 
 ## DrugB.rmd
 
